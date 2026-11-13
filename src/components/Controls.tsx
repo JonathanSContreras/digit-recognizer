@@ -1,75 +1,60 @@
-
 'use client';
 
 interface ControlsProps {
-  onPredict: () => void;
   onClear: () => void;
   onUndo: () => void;
   strokeSize: number;
   onStrokeSizeChange: (size: number) => void;
   isInverted: boolean;
   onInvertChange: (inverted: boolean) => void;
-  isPredicting: boolean;
 }
 
+const buttonClass =
+  'rounded-lg border border-gray-600 bg-gray-700 p-3 text-lg font-semibold text-white shadow-md transition hover:bg-gray-600 focus-visible:outline-2 focus-visible:outline-accent';
+
 export default function Controls({
-  onPredict,
   onClear,
   onUndo,
   strokeSize,
   onStrokeSizeChange,
   isInverted,
   onInvertChange,
-  isPredicting,
 }: ControlsProps) {
   return (
-    <div className="mt-4 space-y-4 p-4 bg-secondary rounded-lg shadow-md">
-      <div className="grid grid-cols-3 gap-2">
-        <button
-          onClick={onPredict}
-          disabled={isPredicting}
-          className="p-3 text-lg bg-accent text-white rounded-lg shadow-md hover:bg-blue-600 disabled:bg-gray-700 disabled:cursor-not-allowed transition-all duration-200 font-semibold transform hover:scale-105"
-        >
-          Predict (P)
+    <div className="mt-4 w-full max-w-[384px] space-y-4 rounded-lg bg-secondary p-4 shadow-md">
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={onClear} className={buttonClass} aria-keyshortcuts="C">
+          Clear <kbd className="text-sm text-gray-400">C</kbd>
         </button>
-        <button
-          onClick={onClear}
-          className="p-3 text-lg bg-gray-700 text-white rounded-lg shadow-md hover:bg-gray-600 transition-all duration-200 border border-gray-600 transform hover:scale-105"
-        >
-          Clear (C)
-        </button>
-        <button
-          onClick={onUndo}
-          className="p-3 text-lg bg-gray-700 text-white rounded-lg shadow-md hover:bg-gray-600 transition-all duration-200 border border-gray-600 transform hover:scale-105"
-        >
-          Undo (U)
+        <button type="button" onClick={onUndo} className={buttonClass} aria-keyshortcuts="U Control+Z Meta+Z">
+          Undo <kbd className="text-sm text-gray-400">U</kbd>
         </button>
       </div>
       <div className="flex items-center gap-4">
-        <label htmlFor="stroke-size" className="text-sm text-gray-300">Stroke Size</label>
+        <label htmlFor="stroke-size" className="shrink-0 text-sm text-gray-300">
+          Stroke size
+        </label>
         <input
           id="stroke-size"
           type="range"
-          min="1"
+          min="8"
           max="40"
           value={strokeSize}
           onChange={(e) => onStrokeSizeChange(Number(e.target.value))}
-          className="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-accent"
+          className="w-full cursor-pointer accent-accent"
         />
       </div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-300">Invert Colors</span>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isInverted}
-            onChange={(e) => onInvertChange(e.target.checked)}
-            className="sr-only peer"
-            aria-label="Invert Colors"
-          />
-          <div className="w-11 h-6 bg-gray-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-accent dark:peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-accent"></div>
-        </label>
-      </div>
+      <label className="flex cursor-pointer items-center justify-between">
+        <span className="text-sm text-gray-300">Invert colors</span>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={isInverted}
+          onChange={(e) => onInvertChange(e.target.checked)}
+          className="peer sr-only"
+        />
+        <span className="relative h-6 w-11 rounded-full bg-gray-600 transition peer-checked:bg-accent peer-focus-visible:ring-2 peer-focus-visible:ring-accent after:absolute after:top-0.5 after:left-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5" />
+      </label>
     </div>
   );
 }

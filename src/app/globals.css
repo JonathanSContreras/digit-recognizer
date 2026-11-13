@@ -1,12 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-body {
-  background-color: #1a202c;
-  color: white;
+@theme inline {
+  --color-primary: #1a202c;
+  --color-secondary: #2d3748;
+  --color-accent: #3b82f6;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-orbitron), ui-sans-serif, system-ui, sans-serif;
 }
 
-.image-pixelated {
-  image-rendering: pixelated;
+body {
+  background-color: var(--color-primary);
+  color: white;
 }

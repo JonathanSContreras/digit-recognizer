@@ -1,122 +1,112 @@
-
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
-
-interface DrawingCanvasProps {
-  width: number;
-  height: number;
-  strokeSize: number;
-  isInverted: boolean;
-  onDraw: (canvas: HTMLCanvasElement) => void;
-  clearCounter: number;
-  undoCounter: number;
-}
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 type Point = { x: number; y: number };
 
-export default function DrawingCanvas({
-  width,
-  height,
-  strokeSize,
-  isInverted,
-  onDraw,
-  clearCounter,
-  undoCounter,
-}: DrawingCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [strokes, setStrokes] = useState<Point[][]>([]);
-  const [currentStroke, setCurrentStroke] = useState<Point[]>([]);
+export interface DrawingCanvasHandle {
+  clear: () => void;
+  undo: () => void;
+  /** Current pixels, or null if nothing has been drawn. */
+  getImageData: () => ImageData | null;
+}
 
-  const draw = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+interface DrawingCanvasProps {
+  size: number;
+  strokeSize: number;
+  isInverted: boolean;
+  /** Fired whenever the drawing changes (stroke finished, undo, clear, recolor). */
+  onChange: () => void;
+}
+
+const DrawingCanvas = forwardRef<DrawingCanvasHandle, DrawingCanvasProps>(function DrawingCanvas(
+  { size, strokeSize, isInverted, onChange },
+  ref,
+) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [strokes, setStrokes] = useState<Point[][]>([]);
+  const currentStroke = useRef<Point[] | null>(null);
+
+  const render = useCallback(() => {
+    const ctx = canvasRef.current?.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
     ctx.fillStyle = isInverted ? 'black' : 'white';
-    ctx.fillRect(0, 0, width, height);
-
+    ctx.fillRect(0, 0, size, size);
     ctx.strokeStyle = isInverted ? 'white' : 'black';
     ctx.lineWidth = strokeSize;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    [...strokes, currentStroke].forEach(stroke => {
-      if (stroke.length === 0) return;
+    const all = currentStroke.current ? [...strokes, currentStroke.current] : strokes;
+    for (const stroke of all) {
       ctx.beginPath();
       ctx.moveTo(stroke[0].x, stroke[0].y);
-      stroke.forEach(point => ctx.lineTo(point.x, point.y));
+      // A single tap still draws a dot.
+      for (const p of stroke.length > 1 ? stroke : [stroke[0], stroke[0]]) ctx.lineTo(p.x, p.y);
       ctx.stroke();
-    });
-  };
+    }
+  }, [strokes, isInverted, strokeSize, size]);
 
   useEffect(() => {
-    draw();
-    if (canvasRef.current) {
-        onDraw(canvasRef.current);
-    }
-  }, [strokes, currentStroke, isInverted, strokeSize]);
+    render();
+    onChange();
+  }, [render, onChange]);
 
-  useEffect(() => {
-    setStrokes([]);
-    setCurrentStroke([]);
-  }, [clearCounter]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      clear: () => setStrokes([]),
+      undo: () => setStrokes((s) => s.slice(0, -1)),
+      getImageData: () => {
+        const ctx = canvasRef.current?.getContext('2d', { willReadFrequently: true });
+        return strokes.length > 0 && ctx ? ctx.getImageData(0, 0, size, size) : null;
+      },
+    }),
+    [strokes, size],
+  );
 
-  useEffect(() => {
-    if (strokes.length > 0) {
-      setStrokes(strokes.slice(0, -1));
-    }
-  }, [undoCounter]);
-
-  const getPoint = (e: React.MouseEvent | React.TouchEvent): Point => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    if ('touches' in e.nativeEvent) {
-      return { 
-        x: e.nativeEvent.touches[0].clientX - rect.left,
-        y: e.nativeEvent.touches[0].clientY - rect.top
-      };
-    }
-    return { 
-      x: e.nativeEvent.offsetX,
-      y: e.nativeEvent.offsetY
+  // Map from CSS pixels to canvas pixels so drawing works when the canvas is scaled down.
+  const toCanvasPoint = (e: React.PointerEvent<HTMLCanvasElement>): Point => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * size,
+      y: ((e.clientY - rect.top) / rect.height) * size,
     };
   };
 
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsDrawing(true);
-    setCurrentStroke([getPoint(e)]);
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    currentStroke.current = [toCanvasPoint(e)];
+    render();
   };
 
-  const continueDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
-    setCurrentStroke(prev => [...prev, getPoint(e)]);
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!currentStroke.current) return;
+    currentStroke.current.push(toCanvasPoint(e));
+    render();
   };
 
-  const stopDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    if (currentStroke.length > 0) {
-      setStrokes(prev => [...prev, currentStroke]);
-    }
-    setCurrentStroke([]);
+  const handlePointerUp = () => {
+    const stroke = currentStroke.current;
+    currentStroke.current = null;
+    if (stroke) setStrokes((s) => [...s, stroke]);
   };
 
   return (
     <canvas
       ref={canvasRef}
-      width={width}
-      height={height}
-      onMouseDown={startDrawing}
-      onMouseMove={continueDrawing}
-      onMouseUp={stopDrawing}
-      onMouseLeave={stopDrawing}
-      onTouchStart={startDrawing}
-      onTouchMove={continueDrawing}
-      onTouchEnd={stopDrawing}
-      className="touch-none border-2 border-accent rounded-lg shadow-lg"
+      width={size}
+      height={size}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      aria-label="Drawing area. Draw a single digit from 0 to 9."
+      role="img"
+      className="aspect-square w-full max-w-[384px] cursor-crosshair touch-none rounded-lg border-2 border-accent shadow-lg"
     />
   );
-}
+});
+
+export default DrawingCanvas;
