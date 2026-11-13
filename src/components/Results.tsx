@@ -1,52 +1,69 @@
-
 'use client';
 
-import { Prediction } from '@/lib/types';
+import { ModelStatus, Prediction } from '@/lib/types';
 
 interface ResultsProps {
   predictions: Prediction[];
-  inferenceTime: number | null;
-  isLoading: boolean;
+  inferenceMs: number | null;
+  modelStatus: ModelStatus;
+  onRetry: () => void;
 }
 
-export default function Results({ predictions, inferenceTime, isLoading }: ResultsProps) {
-  if (isLoading) {
-    return <div className="mt-4 text-center text-gray-300">Loading model and predicting...</div>;
+const DIGITS = Array.from({ length: 10 }, (_, i) => i);
+
+export default function Results({ predictions, inferenceMs, modelStatus, onRetry }: ResultsProps) {
+  if (modelStatus === 'error') {
+    return (
+      <div className="rounded-lg bg-secondary p-6 text-center" role="alert">
+        <p className="text-red-400">Couldn&apos;t load the model.</p>
+        <button type="button" onClick={onRetry} className="mt-3 rounded-md bg-red-500 px-4 py-2 text-white hover:bg-red-600">
+          Retry
+        </button>
+      </div>
+    );
   }
 
-  if (predictions.length === 0) {
-    return <div className="mt-4 text-center text-gray-300">Draw a digit and click &quot;Predict&quot;.</div>;
-  }
-
-  const topPrediction = predictions[0];
+  const top = predictions[0];
+  const byDigit = new Map(predictions.map((p) => [p.label, p.probability]));
 
   return (
-    <div className="mt-4 p-4 bg-secondary rounded-lg shadow-md w-full" aria-live="polite">
-      <h2 className="text-3xl font-bold text-center text-accent font-orbitron">
-        It&apos;s a {topPrediction.label}
-      </h2>
-      <p className="text-center text-sm text-gray-400 mt-1">
-        Confidence: {(topPrediction.probability * 100).toFixed(2)}%
-      </p>
-
-      <div className="mt-4 space-y-2">
-        {predictions.slice(0, 5).map(({ label, probability }) => (
-          <div key={label} className="flex items-center gap-2">
-            <div className="w-6 font-bold text-lg text-gray-300">{label}</div>
-            <div className="w-full bg-gray-700 rounded-full h-5">
-              <div
-                className="bg-accent h-5 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${probability * 100}%` }}
-              ></div>
-            </div>
-            <div className="w-16 text-right text-sm text-gray-300">{(probability * 100).toFixed(1)}%</div>
-          </div>
-        ))}
+    <div className="rounded-lg bg-secondary p-6 shadow-md" aria-live="polite">
+      <div className="text-center">
+        {modelStatus === 'loading' ? (
+          <p className="py-4 text-gray-300">Loading model&hellip;</p>
+        ) : top ? (
+          <>
+            <p className="text-sm uppercase tracking-widest text-gray-400">Prediction</p>
+            <p className="font-display text-7xl font-bold text-accent">{top.label}</p>
+            <p className="text-sm text-gray-400">{(top.probability * 100).toFixed(1)}% confident</p>
+          </>
+        ) : (
+          <p className="py-4 text-gray-300">Draw a digit on the canvas to see a prediction.</p>
+        )}
       </div>
 
-      {inferenceTime !== null && (
-        <p className="text-center text-xs text-gray-500 mt-4">
-          Inference time: {inferenceTime.toFixed(2)} ms
+      <ol className="mt-6 space-y-1.5" aria-label="Probability for each digit">
+        {DIGITS.map((digit) => {
+          const p = byDigit.get(digit) ?? 0;
+          const isTop = top?.label === digit;
+          return (
+            <li key={digit} className="flex items-center gap-3">
+              <span className={`w-4 font-mono font-bold ${isTop ? 'text-white' : 'text-gray-400'}`}>{digit}</span>
+              <div className="h-3 flex-1 overflow-hidden rounded-full bg-gray-700">
+                <div
+                  className={`h-full rounded-full transition-[width] duration-300 ${isTop ? 'bg-accent' : 'bg-gray-500'}`}
+                  style={{ width: `${p * 100}%` }}
+                />
+              </div>
+              <span className="w-14 text-right font-mono text-xs text-gray-400">{(p * 100).toFixed(1)}%</span>
+            </li>
+          );
+        })}
+      </ol>
+
+      {inferenceMs !== null && (
+        <p className="mt-4 text-center text-xs text-gray-500">
+          Preprocessing + inference: {inferenceMs.toFixed(1)} ms
         </p>
       )}
     </div>
