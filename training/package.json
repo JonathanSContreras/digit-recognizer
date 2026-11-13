@@ -1,0 +1,16 @@
+{
+  "name": "digit-recognizer-training",
+  "private": true,
+  "type": "module",
+  "description": "Trains the MNIST CNN used by the web app and exports it in TensorFlow.js format.",
+  "scripts": {
+    "train": "node train.js"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^4.22.0"
+  },
+  "allowScripts": {
+    "@tensorflow/tfjs-node@4.22.0": true,
+    "core-js": false
+  }
+}
